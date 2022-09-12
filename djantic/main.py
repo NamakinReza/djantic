@@ -28,7 +28,8 @@ class ModelSchemaJSONEncoder(DjangoJSONEncoder):
 
 
 def get_field_name(field) -> str:
-    if issubclass(field.__class__, ForeignObjectRel) and not issubclass(field.__class__, OneToOneRel):
+    if issubclass(field.__class__, ForeignObjectRel) and not issubclass(field.__class__,
+                                                                        OneToOneRel):
         return getattr(field, "related_name", None) or f"{field.name}_set"
     else:
         return getattr(field, "name", field)
@@ -37,17 +38,17 @@ def get_field_name(field) -> str:
 class ModelSchemaMetaclass(ModelMetaclass):
     @no_type_check
     def __new__(
-        mcs,
-        name: str,
-        bases: tuple,
-        namespace: dict,
+            mcs,
+            name: str,
+            bases: tuple,
+            namespace: dict,
     ):
         cls = super().__new__(mcs, name, bases, namespace)
         for base in reversed(bases):
             if (
-                _is_base_model_class_defined
-                and issubclass(base, ModelSchema)
-                and base == ModelSchema
+                    _is_base_model_class_defined
+                    and issubclass(base, ModelSchema)
+                    and base == ModelSchema
             ):
 
                 try:
@@ -79,7 +80,8 @@ class ModelSchemaMetaclass(ModelMetaclass):
                     include = list(annotations.keys())
                     cls.__config__.include = include
                 elif include is None and exclude is None:
-                    include = list(annotations.keys()) + [get_field_name(f) for f in fields]
+                    include = list(annotations.keys()) + [get_field_name(f) for f in
+                                                          fields]
                     cls.__config__.include = include
 
                 field_values = {}
@@ -89,9 +91,9 @@ class ModelSchemaMetaclass(ModelMetaclass):
                     field_name = get_field_name(field)
 
                     if (
-                        field_name in _seen
-                        or (include and field_name not in include)
-                        or (exclude and field_name in exclude)
+                            field_name in _seen
+                            or (include and field_name not in include)
+                            or (exclude and field_name in exclude)
                     ):
                         continue
 
@@ -104,8 +106,8 @@ class ModelSchemaMetaclass(ModelMetaclass):
                         python_type = annotations.pop(field_name)
                         pydantic_field = namespace[field_name]
                         if (
-                            hasattr(pydantic_field, "default_factory")
-                            and pydantic_field.default_factory
+                                hasattr(pydantic_field, "default_factory")
+                                and pydantic_field.default_factory
                         ):
                             pydantic_field = pydantic_field.default_factory()
 
@@ -122,8 +124,9 @@ class ModelSchemaMetaclass(ModelMetaclass):
 
                 cls.__doc__ = namespace.get("__doc__", config.model.__doc__)
                 cls.__fields__ = {}
-                cls.__alias_map__ = {getattr(model_field[1], 'alias', None) or field_name: field_name
-                                     for field_name, model_field in field_values.items()}
+                cls.__alias_map__ = {
+                    getattr(model_field[1], 'alias', None) or field_name: field_name
+                    for field_name, model_field in field_values.items()}
                 model_schema = create_model(
                     name, __base__=cls, __module__=cls.__module__, **field_values
                 )
@@ -156,7 +159,8 @@ class ProxyGetterNestedObj(GetterDict):
             attr = list(attr.all())
         elif outer_type_ == int and issubclass(type(attr), Model):
             attr = attr.pk
-        elif issubclass(attr.__class__, ImageFieldFile) and issubclass(outer_type_, str):
+        elif issubclass(attr.__class__, ImageFieldFile) and issubclass(outer_type_,
+                                                                       str):
             attr = attr.name
         return attr
 
@@ -167,11 +171,11 @@ class ModelSchema(BaseModel, metaclass=ModelSchemaMetaclass):
 
     @classmethod
     def schema_json(
-        cls,
-        *,
-        by_alias: bool = True,
-        encoder_cls: Any = ModelSchemaJSONEncoder,
-        **dumps_kwargs: Any,
+            cls,
+            *,
+            by_alias: bool = True,
+            encoder_cls: Any = ModelSchemaJSONEncoder,
+            **dumps_kwargs: Any,
     ) -> str:
 
         return cls.__config__.json_dumps(
@@ -194,7 +198,15 @@ class ModelSchema(BaseModel, metaclass=ModelSchemaMetaclass):
         return cls.from_django(*args, **kwargs)
 
     @classmethod
-    def from_django(cls, objs, many=False, context=None):
+    def _converted_instance(cls, instance, to_dict=False, to_json=False):
+        if to_dict:
+            return instance.dict()
+        elif to_json:
+            return instance.json()
+        return instance
+
+    @classmethod
+    def from_django(cls, objs, many=False, context=None, to_dict=False, to_json=False):
         if context is None:
             context = {}
         cls.context = context
@@ -202,11 +214,14 @@ class ModelSchema(BaseModel, metaclass=ModelSchemaMetaclass):
             result_objs = []
             for obj in objs:
                 cls.instance = obj
-                result_objs.append(super().from_orm(ProxyGetterNestedObj(obj, cls)))
+                instance = super().from_orm(ProxyGetterNestedObj(obj, cls))
+                result_objs.append(cls._converted_instance(instance, to_dict, to_json))
+
             return result_objs
 
         cls.instance = objs
-        return super().from_orm(ProxyGetterNestedObj(objs, cls))
+        instance = super().from_orm(ProxyGetterNestedObj(objs, cls))
+        return cls._converted_instance(instance, to_dict, to_json)
 
 
 _is_base_model_class_defined = True
