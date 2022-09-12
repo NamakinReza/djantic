@@ -194,7 +194,9 @@ class ModelSchema(BaseModel, metaclass=ModelSchemaMetaclass):
         return cls.from_django(*args, **kwargs)
 
     @classmethod
-    def from_django(cls, objs, many=False, context={}):
+    def from_django(cls, objs, many=False, context=None):
+        if context is None:
+            context = {}
         cls.context = context
         if many:
             result_objs = []
