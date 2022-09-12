@@ -151,11 +151,11 @@ class ProxyGetterNestedObj(GetterDict):
         is_manager = issubclass(attr.__class__, Manager)
 
         if is_manager and outer_type_ == List[Dict[str, int]]:
-            attr = list(attr.all().values("id"))
+            attr = list(attr.all().values("pk"))
         elif is_manager:
             attr = list(attr.all())
         elif outer_type_ == int and issubclass(type(attr), Model):
-            attr = attr.id
+            attr = attr.pk
         elif issubclass(attr.__class__, ImageFieldFile) and issubclass(outer_type_, str):
             attr = attr.name
         return attr
